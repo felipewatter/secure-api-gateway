@@ -1,41 +1,134 @@
-# Secure API Gateway
+# 🔐 Secure API Gateway
 
-A comprehensive API Gateway built with Node.js and TypeScript focused on enhancing API security. Implements JWT authentication, request validation, rate limiting, logging, role-based access control (RBAC), and secure routing.
+[![CI Build](https://github.com/SEU_USUARIO/secure-api-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/SEU_USUARIO/secure-api-gateway/actions)
 
-## Features
+Um gateway de API seguro, modular e extensível desenvolvido com Node.js, TypeScript e Express. Esta aplicação oferece funcionalidades de segurança avançadas como autenticação JWT, controle de acesso baseado em papéis (RBAC), limitação de requisições (rate limiting), CORS configurável, e logs estruturados.
 
-- 🔐 JWT Authentication
-- 📈 Rate Limiting
-- 🛑 Request Logging
-- 🔒 Role-Based Access Control
-- 🌐 CORS Protection
-- 📁 Modular Routing
-- ⚙️ Configurable with .env
+---
 
-## Technologies
+## 🧩 Funcionalidades
 
-- Node.js
-- TypeScript
-- Express.js
-- dotenv
-- jsonwebtoken
+- ✅ Autenticação via JWT
+- 🔐 RBAC (Role-Based Access Control)
+- 🛡️ Rate Limiter por IP
+- 🌐 CORS com whitelist
+- 📈 Logger de requisições
+- 📦 Estrutura modular (routes, middlewares, controllers)
+- ⚙️ CI com GitHub Actions
+- 🧪 Testes unitários prontos para extensão
+- 🚀 Pronto para deploy (Dockerfile opcional)
 
-## Setup
+---
 
-```bash
-git clone https://github.com/seu-usuario/secure-api-gateway.git
-cd secure-api-gateway
-npm install
-npm run build
-npm start
+## 📁 Estrutura do Projeto
+
+```
+secure-api-gateway/
+│
+├── .github/workflows/ci.yml      # Pipeline CI
+├── src/
+│   ├── auth/                     # JWT e autenticação
+│   ├── middleware/              # Middlewares: logger, RBAC, rateLimiter, CORS
+│   ├── routes/                  # Rotas protegidas
+│   └── index.ts                 # Ponto de entrada da aplicação
+├── package.json
+├── tsconfig.json
+├── README.md
+└── LICENSE
 ```
 
-## Development
+---
+
+## 🚀 Como usar
+
+### 1. Clonar o repositório
+
+```bash
+git clone https://github.com/felipewatter/secure-api-gateway.git
+cd secure-api-gateway
+```
+
+### 2. Instalar dependências
+
+```bash
+npm install
+```
+
+### 3. Rodar localmente
 
 ```bash
 npm run dev
 ```
 
-## License
+> A API estará disponível em `http://localhost:3000`
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+---
+
+## 🧪 Testando a API
+
+### 🔑 Rota de autenticação (simulada)
+
+```http
+POST /login
+Authorization: Basic <usuário/senha>
+```
+
+### 🔐 Rota protegida
+
+```http
+GET /secure
+Headers:
+  Authorization: Bearer <token JWT>
+```
+
+---
+
+## ⚙️ Scripts
+
+```bash
+npm run dev       # Executa a aplicação com ts-node-dev
+npm run build     # Compila para JavaScript
+npm start         # Executa o build em produção
+```
+
+---
+
+## 🛠️ Tecnologias
+
+- Node.js
+- TypeScript
+- Express.js
+- JSON Web Token (JWT)
+- dotenv
+- Helmet
+- Winston (logs)
+- Rate-limiter-flexible
+
+---
+
+## 🧱 Contribuindo
+
+1. Fork o repositório
+2. Crie uma branch: `git checkout -b feature/sua-feature`
+3. Commit suas mudanças: `git commit -m 'feat: nova funcionalidade'`
+4. Push: `git push origin feature/sua-feature`
+5. Abra um Pull Request
+
+---
+
+## 📝 Licença
+
+Distribuído sob a Licença MIT. Veja `LICENSE` para mais informações.
+
+---
+
+## 👨‍💻 Autor
+
+Felipe Silva  
+GitHub: [@felipewatter](https://github.com/felipewatter)
+
+---
+
+## 💡 Inspiração
+
+Este projeto foi desenvolvido para demonstrar boas práticas em segurança de APIs, CI/CD com GitHub Actions, e arquitetura limpa com foco em modularidade e extensibilidade.
