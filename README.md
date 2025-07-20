@@ -1,6 +1,6 @@
 # 🔐 Secure API Gateway
 
-[![CI Build](https://github.com/SEU_USUARIO/secure-api-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/SEU_USUARIO/secure-api-gateway/actions)
+[![CI Build](https://github.com/felipewatter/secure-api-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/felipewatter/secure-api-gateway/actions)
 
 Um gateway de API seguro, modular e extensível desenvolvido com Node.js, TypeScript e Express. Esta aplicação oferece funcionalidades de segurança avançadas como autenticação JWT, controle de acesso baseado em papéis (RBAC), limitação de requisições (rate limiting), CORS configurável, e logs estruturados.
 
