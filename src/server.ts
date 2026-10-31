@@ -27,7 +27,7 @@ export function makeGateway(config:Config,logger:(event:Record<string,unknown>)=
  let payload:Buffer;try{payload=await body(req,config.maxBodyBytes)}catch{reply(res,413,'request_too_large');return}
  const url=new URL(req.url!,config.upstream);if(url.origin!==config.upstream.origin){reply(res,400,'invalid_target');return}
  const outbound:Record<string,string>={'X-Request-ID':requestId,'X-Gateway-Subject':principal.sub};for(const k of ['accept','accept-language','content-type'] as const){const v=req.headers[k];if(typeof v==='string')outbound[k]=v}
- let upstream:Response;try{upstream=await fetch(url,{method,headers:outbound,body:['GET','HEAD'].includes(method)?undefined:payload,redirect:'manual',signal:AbortSignal.timeout(config.upstreamTimeoutMs),cache:'no-store'})}catch{reply(res,502,'upstream_unavailable');return}
+ let upstream:Response;try{upstream=await fetch(url,{method,headers:outbound,body:['GET','HEAD'].includes(method)?undefined:new Uint8Array(payload),redirect:'manual',signal:AbortSignal.timeout(config.upstreamTimeoutMs),cache:'no-store'})}catch{reply(res,502,'upstream_unavailable');return}
  if(upstream.status>=300&&upstream.status<400){await upstream.body?.cancel();reply(res,502,'upstream_redirect_blocked');return}
  let data:Buffer;try{data=await responseBody(upstream,config.maxResponseBytes)}catch{reply(res,502,'upstream_response_invalid');return}
  for(const k of ['content-type','content-language','last-modified']){const v=upstream.headers.get(k);if(v)res.setHeader(k,v)}
