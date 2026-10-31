@@ -1,0 +1,33 @@
+'use strict';
+const { test, before, after } = require('node:test');
+const assert = require('node:assert/strict');
+const { createServer } = require('node:http');
+const { generateKeyPairSync, sign } = require('node:crypto');
+const { mkdtempSync, writeFileSync, rmSync } = require('node:fs');
+const os = require('node:os'), path = require('node:path');
+const { parseConfig } = require('../dist/config.js');
+const { authenticate } = require('../dist/auth.js');
+const { makeGateway } = require('../dist/server.js');
+const { RateLimiter } = require('../dist/limiter.js');
+const dir=mkdtempSync(path.join(os.tmpdir(),'gateway-test-'));
+const pair=generateKeyPairSync('rsa',{modulusLength:2048});
+const keyFile=path.join(dir,'public.pem');
+writeFileSync(keyFile,pair.publicKey.export({type:'spki',format:'pem'}));
+const logs=[];let backend,gateway,port,upstreamPort,conf;
+const environment=(extra={})=>({JWT_ISSUER:'https://auth.example.test',JWT_AUDIENCE:'demo-api',JWT_PUBLIC_KEY_FILE:keyFile,UPSTREAM_URL:`http://127.0.0.1:${upstreamPort}/`,ROUTE_RULES:JSON.stringify({'/api/data':['reader','admin'],'/api/admin':['admin']}),CORS_ORIGINS:'http://localhost:5173',RATE_LIMIT_PER_MINUTE:'100',PORT:'0',...extra});
+function jwt(overrides={},header={alg:'RS256',typ:'JWT'}){const now=Math.floor(Date.now()/1000);const claims={iss:'https://auth.example.test',aud:'demo-api',sub:'user1',roles:['reader'],exp:now+300,iat:now,...overrides};const b=x=>Buffer.from(JSON.stringify(x)).toString('base64url');const signed=`${b(header)}.${b(claims)}`;return signed+'.'+sign('RSA-SHA256',Buffer.from(signed),pair.privateKey).toString('base64url')}
+function request(endpoint,options={},token=jwt()){return fetch(`http://127.0.0.1:${port}${endpoint}`,{...options,headers:{Authorization:`Bearer ${token}`,...options.headers},redirect:'manual'})}
+before(async()=>{backend=createServer(async(req,res)=>{const parts=[];for await(const ch of req)parts.push(ch);if(req.url.startsWith('/api/admin/redirect')){res.writeHead(302,{location:'https://example.com/private'});return res.end()}res.setHeader('Content-Type','application/json');res.setHeader('Set-Cookie','private=secret');res.end(JSON.stringify({url:req.url,auth:req.headers.authorization??null,actor:req.headers['x-gateway-subject'],spoofed:req.headers['x-gateway-is-admin']??null,body:Buffer.concat(parts).toString(),method:req.method}))});await new Promise(r=>backend.listen(0,'127.0.0.1',r));upstreamPort=backend.address().port;conf=parseConfig(environment());gateway=makeGateway(conf,x=>logs.push(x));await new Promise(r=>gateway.listen(0,'127.0.0.1',r));port=gateway.address().port});
+after(async()=>{await Promise.all([new Promise(r=>gateway.close(r)),new Promise(r=>backend.close(r))]);rmSync(dir,{recursive:true,force:true})});
+test('health is public with security headers',async()=>{const r=await fetch(`http://127.0.0.1:${port}/health`);assert.equal(r.status,200);assert.equal(r.headers.get('x-content-type-options'),'nosniff');assert.equal(r.headers.get('strict-transport-security'),null)});
+test('missing token denied',async()=>assert.equal((await fetch(`http://127.0.0.1:${port}/api/data`)).status,401));
+test('invalid JWTs denied',async()=>{for(const t of [jwt({exp:1}),jwt({aud:'wrong'}),jwt({iss:'wrong'}),jwt({}, {alg:'HS256'}),'bad'])assert.equal((await request('/api/data',{},t)).status,401)});
+test('RS256 proxy strips authorization, cookies and client identity headers',async()=>{const r=await request('/api/data?x=1',{headers:{'X-Gateway-Is-Admin':'true'}});assert.equal(r.status,200);const b=await r.json();assert.equal(b.url,'/api/data?x=1');assert.equal(b.actor,'user1');assert.equal(b.auth,null);assert.equal(b.spoofed,null);assert.equal(r.headers.get('set-cookie'),null)});
+test('RBAC denies reader admin access',async()=>{assert.equal((await request('/api/admin/secret')).status,403);assert.equal((await request('/api/admin/secret',{},jwt({roles:['admin']}))).status,200);assert.equal((await request('/api/unknown')).status,403)});
+test('CORS whitelist and preflight header validation',async()=>{assert.equal((await request('/api/data',{headers:{Origin:'https://evil.test'}})).status,403);const r=await request('/api/data',{headers:{Origin:'http://localhost:5173'}});assert.equal(r.headers.get('access-control-allow-origin'),'http://localhost:5173');const p=await request('/api/data',{method:'OPTIONS',headers:{Origin:'http://localhost:5173','Access-Control-Request-Method':'POST','Access-Control-Request-Headers':'authorization, content-type'}});assert.equal(p.status,204);const bad=await request('/api/data',{method:'OPTIONS',headers:{Origin:'http://localhost:5173','Access-Control-Request-Method':'POST','Access-Control-Request-Headers':'x-gateway-subject'}});assert.equal(bad.status,400)});
+test('upstream redirect blocked',async()=>assert.equal((await request('/api/admin/redirect',{},jwt({roles:['admin']}))).status,502));
+test('request body capped',async()=>assert.equal((await request('/api/data',{method:'POST',headers:{'Content-Type':'text/plain'},body:'x'.repeat(1048577)})).status,413));
+test('limiter rejects excessive requests',()=>{const r=new RateLimiter(2,1);assert.equal(r.allow('ip1',0),true);assert.equal(r.allow('ip1',100),true);assert.equal(r.allow('ip1',200),false);assert.equal(r.allow('ip2',200),false);assert.equal(r.allow('ip2',60001),true)});
+test('invalid configuration rejected',()=>{assert.throws(()=>parseConfig(environment({JWT_AUDIENCE:''})));assert.throws(()=>parseConfig(environment({ROUTE_RULES:'{}'})));assert.throws(()=>parseConfig(environment({NODE_ENV:'production'})))});
+test('audit excludes token, query and plain subject',async()=>{const token=jwt();await request('/api/data?token=secret_value',{},token);const log=JSON.stringify(logs);assert.equal(log.includes(token),false);assert.equal(log.includes('secret_value'),false);assert.equal(log.includes('user1'),false)});
+test('JWT claims validated',()=>{assert.equal(authenticate('Bearer '+jwt({roles:'admin'}),conf),null);assert.equal(authenticate('Bearer '+jwt({nbf:9999999999}),conf),null)});
