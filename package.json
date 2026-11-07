@@ -1,6 +1,6 @@
 {
   "name": "secure-api-gateway",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "description": "RS256 JWT, RBAC and rate-limited security API gateway",
   "license": "MIT",
